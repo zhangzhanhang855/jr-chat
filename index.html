@@ -4,12 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>实时在线聊天室</title>
-    
-    <!-- 1. 样式文件：采用可以安全下载的 Tailwind CSS 样式 -->
+    <!-- 仅引入基础 CSS 样式 -->
     <link rel="stylesheet" href="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/tailwindcss/2.2.19/tailwind.min.css">
-    
-    <!-- 2. 核心脚本：采用字节跳动国内高稳定 CDN 节点，绝不会加载失败 -->
-    <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/supabase-js/1.30.0/supabase-js.min.js" crossorigin="anonymous"></script>
 </head>
 <body class="bg-gray-100 h-screen flex flex-col justify-between font-sans">
 
@@ -23,7 +19,7 @@
     <main id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-4 max-w-3xl w-full mx-auto">
         <div class="flex justify-center">
             <span class="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
-                欢迎来到聊天室！本系统已启用国内加速骨干网。
+                欢迎来到聊天室！本系统采用原生 WebSocket 架构，连接更稳定。
             </span>
         </div>
     </main>
@@ -49,22 +45,6 @@
     </footer>
 
     <script>
-        // 配置数据（已为您自动填妥）
-        const SUPABASE_URL = "https://hetldktquzyqlgkzuifi.supabase.co"; 
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhldGxka3RxdXp5cWxna3p1aWZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MDc2NDYsImV4cCI6MjA5NDQ4MzY0Nn0.qFULlbCany8PBZ1kUO5O-xGzxvnyFLWuGkyj7mSaRQ8"; 
-
-        // 终极兼容性检查
-        const supabaseProvider = window.supabase || (window.supabaseJS ? window.supabaseJS : null);
-        
-        if (!supabaseProvider) {
-            document.getElementById('user-tag').className = "text-xs bg-red-600 px-3 py-1 rounded-full";
-            document.getElementById('user-tag').innerText = "❌ 脚本受阻，请直接部署至Vercel测试";
-            alert('本地网络严格限制了外部脚本。请不要双击打开，直接把此文件上传到 Vercel 部署，线上环境会自动通行！');
-        }
-
-        // 初始化 Supabase 客户端 (兼容老版本镜像语法)
-        const supabaseClient = supabaseProvider.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
         // 随机生成当前用户的匿名昵称
         const myUsername = "用户_" + Math.floor(1000 + Math.random() * 9000);
         
@@ -73,6 +53,40 @@
         const messageInput = document.getElementById('message-input');
         const userTag = document.getElementById('user-tag');
 
+        // 使用免费的公共 WebSocket 服务器，末尾的 chat-room-xyz 是你的房间名（可随意修改以防撞房）
+        const socket = new WebSocket('wss://api.piesocket.com/v3/chat-room-xyz?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3clON7Heox9o6&notify_self=1');
+
+        // 连接成功
+        socket.onopen = () => {
+            userTag.className = "text-xs bg-green-600 px-3 py-1 rounded-full";
+            userTag.innerText = `🟢 在线: ${myUsername}`;
+        };
+
+        // 接收消息
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.username && data.text) {
+                    appendMessage(data.username, data.text, data.username === myUsername);
+                }
+            } catch (e) {
+                // 忽略非 JSON 格式的系统广播
+            }
+        };
+
+        // 连接断开
+        socket.onclose = () => {
+            userTag.className = "text-xs bg-red-500 px-3 py-1 rounded-full";
+            userTag.innerText = `🔴 连接断开，请刷新`;
+        };
+
+        // 发生错误
+        socket.onerror = (error) => {
+            console.error("WebSocket 错误:", error);
+            userTag.innerText = `❌ 连接异常`;
+        };
+
+        // 渲染消息
         function appendMessage(username, text, isMe = false) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-4`;
@@ -95,41 +109,22 @@
             return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
 
-        // 订阅广播通道
-        const channel = supabaseClient.channel('global-room', {
-            config: { broadcast: { self: true } }
-        });
-
-        channel
-            .on('broadcast', { event: 'shout' }, (payload) => {
-                const { username, text } = payload.payload;
-                appendMessage(username, text, username === myUsername);
-            })
-            .subscribe((status) => {
-                console.log("连接状态:", status);
-                if (status === 'SUBSCRIBED') {
-                    userTag.className = "text-xs bg-green-600 px-3 py-1 rounded-full";
-                    userTag.innerText = `🟢 在线: ${myUsername}`;
-                }
-            });
-
         // 发送消息
-        messageForm.addEventListener('submit', async (e) => {
+        messageForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const text = messageInput.value.trim();
             if (!text) return;
 
-            try {
-                await channel.send({
-                    type: 'broadcast',
-                    event: 'shout',
-                    payload: { username: myUsername, text: text }
-                });
-                messageInput.value = '';
-                messageInput.focus();
-            } catch (error) {
-                alert("发送失败，请刷新重试");
+            if (socket.readyState !== WebSocket.OPEN) {
+                alert("尚未连接到服务器，请稍后再试");
+                return;
             }
+
+            const payload = { username: myUsername, text: text };
+            socket.send(JSON.stringify(payload));
+            
+            messageInput.value = '';
+            messageInput.focus();
         });
     </script>
 </body>
