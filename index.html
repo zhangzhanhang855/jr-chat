@@ -4,17 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>实时在线聊天室</title>
-    <!-- 引入 Tailwind CSS 用于美化 UI -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- 引入 Supabase 客户端 JS SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 使用 unpkg 镜像引入 Tailwind CSS，避免 jsdelivr 抽风 -->
+    <script src="https://unpkg.com/@tailwindcss/browser@4" crossorigin="anonymous"></script>
+    <!-- 使用 cdnjs 官方镜像引入 Supabase 客户端，稳定性更佳 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/supabase/2.43.4/supabase.js" crossorigin="anonymous"></script>
 </head>
 <body class="bg-gray-100 h-screen flex flex-col justify-between font-sans">
 
     <!-- 顶部导航栏 -->
     <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
         <h1 class="text-xl font-bold tracking-wide">🌐 公共实时聊天室</h1>
-        <div id="user-tag" class="text-xs bg-blue-700 px-3 py-1 rounded-full">正在连接...</div>
+        <div id="user-tag" class="text-xs bg-amber-500 px-3 py-1 rounded-full animate-pulse">正在连接服务器...</div>
     </header>
 
     <!-- 聊天内容区域 -->
@@ -22,7 +22,7 @@
         <!-- 欢迎消息 -->
         <div class="flex justify-center">
             <span class="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
-                欢迎来到聊天室！请理性发言。
+                欢迎来到聊天室！本系统无需服务器，基于 Vercel + Supabase 实时广播构建。
             </span>
         </div>
     </main>
@@ -33,7 +33,7 @@
             <input 
                 type="text" 
                 id="message-input" 
-                placeholder="输入消息..." 
+                placeholder="输入消息内容..." 
                 required
                 autocomplete="off"
                 class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -48,30 +48,34 @@
     </footer>
 
     <script>
-        // ================= 配置区域 =================
-        // 请替换为您自己的 Supabase 项目 URL 和 Anon Key
-        const SUPABASE_URL = "https://hetldktquzyqlgkzuifi.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhldGxka3RxdXp5cWxna3p1aWZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MDc2NDYsImV4cCI6MjA5NDQ4MzY0Nn0.qFULlbCany8PBZ1kUO5O-xGzxvnyFLWuGkyj7mSaRQ8";
-        // ============================================
+        // ==================== [请在此处配置你的密码] ====================
+        const SUPABASE_URL = "https://hetldktquzyqlgkzuifi.supabase.co"; 
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhldGxka3RxdXp5cWxna3p1aWZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MDc2NDYsImV4cCI6MjA5NDQ4MzY0Nn0.qFULlbCany8PBZ1kUO5O-xGzxvnyFLWuGkyj7mSaRQ8"; 
+        // =============================================================
+
+        // 初始化检查，防止脚本未加载成功时崩溃
+        if (typeof supabase === 'undefined') {
+            alert('Supabase 脚本加载失败，请检查网络或刷新页面！');
+        }
 
         // 初始化 Supabase 客户端
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // 随机生成当前用户的昵称
+        // 随机生成当前用户的匿名昵称
         const myUsername = "用户_" + Math.floor(1000 + Math.random() * 9000);
-        document.getElementById('user-tag').innerText = `我的身份: ${myUsername}`;
-
+        
         const chatBox = document.getElementById('chat-box');
         const messageForm = document.getElementById('message-form');
         const messageInput = document.getElementById('message-input');
+        const userTag = document.getElementById('user-tag');
 
-        // 渲染消息到界面的函数
+        // 安全地将消息渲染到界面上（防止XSS脚本注入攻击）
         function appendMessage(username, text, isMe = false) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
 
             msgDiv.innerHTML = `
-                <span class="text-xs text-gray-500 mb-1 px-1">${username}</span>
+                <span class="text-xs text-gray-500 mb-1 px-1">${username} ${isMe ? '(我)' : ''}</span>
                 <div class="max-w-[75%] p-3 rounded-2xl shadow-sm text-sm ${
                     isMe 
                     ? 'bg-blue-600 text-white rounded-tr-none' 
@@ -81,20 +85,18 @@
                 </div>
             `;
             chatBox.appendChild(msgDiv);
-            // 滚动到底部
-            chatBox.scrollTop = chatBox.scrollHeight;
+            chatBox.scrollTop = chatBox.scrollHeight; // 滚动到最新消息
         }
 
-        // 防止 XSS 攻击的转义函数
         function escapeHTML(str) {
             return str.replace(/[&<>'"]/g, 
                 tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
             );
         }
 
-        // 1. 初始化并订阅 Supabase 实时广播通道 (Broadcast)
-        const channel = supabase.channel('room-1', {
-            config: { broadcast: { self: true } } // self: true 表示自己发送的消息也会被接收
+        // 创建并订阅 Supabase 实时广播通道 (Broadcast)
+        const channel = supabaseClient.channel('global-room', {
+            config: { broadcast: { self: true } } // 允许接收自己发送的消息，方便统一渲染
         });
 
         channel
@@ -103,29 +105,41 @@
                 const isMe = username === myUsername;
                 appendMessage(username, text, isMe);
             })
-            .subscribe((status) => {
+            .subscribe((status, err) => {
+                console.log("Supabase 连接状态:", status);
+                if (err) console.error("连接发生错误:", err);
+
                 if (status === 'SUBSCRIBED') {
-                    document.getElementById('user-tag').classList.add('bg-green-600');
-                    document.getElementById('user-tag').innerText = `🟢 在线: ${myUsername}`;
+                    // 连接成功，改变顶部标签颜色
+                    userTag.classList.remove('bg-amber-500', 'animate-pulse');
+                    userTag.classList.add('bg-green-600');
+                    userTag.innerText = `🟢 在线: ${myUsername}`;
+                } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+                    userTag.classList.remove('bg-green-600', 'animate-pulse');
+                    userTag.classList.add('bg-red-500');
+                    userTag.innerText = `🔴 连接失败/断开`;
                 }
             });
 
-        // 2. 监听表单提交（发送消息）
+        // 监听表单发送事件
         messageForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const text = messageInput.value.trim();
             if (!text) return;
 
-            // 通过广播通道将消息发送给所有在线用户
-            await channel.send({
-                type: 'broadcast',
-                event: 'shout',
-                payload: { username: myUsername, text: text }
-            });
-
-            // 清空输入框并聚焦
-            messageInput.value = '';
-            messageInput.focus();
+            // 通过 WebSocket 广播消息
+            try {
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'shout',
+                    payload: { username: myUsername, text: text }
+                });
+                messageInput.value = '';
+                messageInput.focus();
+            } catch (error) {
+                console.error("消息发送失败:", error);
+                alert("发送失败，请检查网络连接");
+            }
         });
     </script>
 </body>
