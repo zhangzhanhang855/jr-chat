@@ -2,223 +2,170 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord 官方实时联动站</title>
-    <!-- 引入 Tailwind CSS 作为样式基石 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Discord 官方实时直连</title>
     <link rel="stylesheet" href="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/tailwindcss/2.2.19/tailwind.min.css">
     <style>
-        /* Discord 官方 2026 最新标准暗黑视觉调色盘 */
-        .dc-bg-servers { background-color: #1e1f22; }  /* 最左侧服务器列表 */
-        .dc-bg-channels { background-color: #2b2d31; } /* 左二频道列表 */
-        .dc-bg-chat { background-color: #313338; }     /* 聊天主背景 */
-        .dc-bg-input { background-color: #383a40; }    /* 输入框容器 */
-        .dc-bg-profile { background-color: #232428; }  /* 个人状态栏 */
+        :root {
+            --bg-servers: #1e1f22;
+            --bg-channels: #2b2d31;
+            --bg-chat: #313338;
+            --bg-input: #383a40;
+            --text-main: #dbdee1;
+            --text-muted: #949ba4;
+        }
+        body { background-color: var(--bg-servers); color: var(--text-main); -webkit-font-smoothing: antialiased; }
         
-        /* 隐藏侧边栏滚动条，保持精致感 */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* 修复侧边栏布局高度 */
+        .sidebar-height { height: 100vh; }
+        
+        /* 适配 iPad/手机的滚动条 */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 10px; }
 
-        /* 自定义丝滑的聊天区域滚动条 */
-        .dc-scrollbar::-webkit-scrollbar { width: 8px; }
-        .dc-scrollbar::-webkit-scrollbar-track { background: #2b2d31; }
-        .dc-scrollbar::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; }
+        /* 统一输入框样式 */
+        .dc-input-container {
+            background-color: var(--bg-input);
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin: 0 16px 24px 16px;
+        }
+
+        /* 频道点击状态 */
+        .channel-active { background-color: #3f4147; color: white; }
+        .channel-hover:hover { background-color: #35373c; color: #dbdee1; }
     </style>
 </head>
-<body class="h-screen flex overflow-hidden font-sans select-none dc-bg-chat text-gray-200">
+<body class="flex sidebar-height overflow-hidden">
 
-    <!-- 1. 【左侧栏】服务器图标导航 (Icon List) -->
-    <div class="dc-bg-servers w-18 flex flex-col items-center py-3 space-y-2 flex-shrink-0 no-scrollbar overflow-y-auto">
-        <!-- 主服务器图标 -->
-        <div class="relative group flex items-center justify-center w-full">
-            <div class="absolute left-0 w-1 h-5 bg-white rounded-r transition-all duration-200 origin-left scale-y-100 group-hover:h-10"></div>
-            <div class="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-200 shadow-lg">
-                <span class="text-xl font-bold text-white">🎮</span>
-            </div>
-        </div>
-        <div class="w-8 h-0.5 bg-gray-700 rounded my-1"></div>
-        <!-- 装饰性附加服务器 -->
-        <div class="w-12 h-12 bg-gray-700 rounded-3xl flex items-center justify-center cursor-pointer hover:bg-green-500 hover:rounded-xl transition-all duration-200">
-            <span class="text-lg">🤖</span>
-        </div>
-        <div class="w-12 h-12 bg-gray-700 rounded-3xl flex items-center justify-center cursor-pointer hover:bg-yellow-600 hover:rounded-xl transition-all duration-200">
-            <span class="text-lg">🎵</span>
-        </div>
+    <div class="w-18 flex-shrink-0 flex flex-col items-center py-3 space-y-3" style="background-color: var(--bg-servers); width: 72px;">
+        <div class="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center cursor-pointer shadow-xl text-xl">🎮</div>
+        <div class="w-8 h-0.5 bg-gray-800 rounded"></div>
+        <div class="w-12 h-12 bg-gray-700 rounded-3xl flex items-center justify-center opacity-50 cursor-not-allowed">🤖</div>
     </div>
 
-    <!-- 2. 【左二栏】群频道树结构 (Channels Tree) -->
-    <div class="dc-bg-channels w-60 flex flex-col flex-shrink-0 border-r border-gray-900 border-opacity-30">
-        <!-- 群名称头部 -->
-        <div class="h-12 flex items-center justify-between px-4 font-bold shadow-sm border-b border-gray-900 border-opacity-40 text-white tracking-wide cursor-pointer hover:bg-gray-700 hover:bg-opacity-20 transition-colors">
-            <span>🚀 线上开发连通群</span>
-            <span class="text-gray-400 text-xs">▼</span>
+    <div class="w-60 flex-shrink-0 flex flex-col" style="background-color: var(--bg-channels); width: 240px;">
+        <div class="h-12 flex items-center px-4 font-bold border-b border-black border-opacity-20 shadow-sm text-white">
+            🚀 线上开发连通群
         </div>
         
-        <!-- 列表内容 -->
-        <div class="flex-1 overflow-y-auto pt-3 px-2 space-y-1 no-scrollbar">
-            <div class="text-xs font-semibold text-gray-400 px-2 py-1 tracking-wider uppercase">文字频道</div>
-            <div class="flex items-center justify-between px-2 py-1.5 rounded text-white bg-gray-700 bg-opacity-60 cursor-pointer font-medium text-sm">
-                <div class="flex items-center">
-                    <span class="text-xl text-gray-400 mr-2 font-light">#</span> 🔗-文字同步直连
-                </div>
-                <span class="text-xs bg-red-500 text-white font-bold px-1.5 py-0.5 rounded-full scale-90 animate-pulse">LIVE</span>
+        <div class="flex-1 overflow-y-auto pt-4 px-2 space-y-1">
+            <div class="text-xs font-bold text-gray-500 px-2 py-2 uppercase tracking-tighter">文字频道</div>
+            <div class="flex items-center px-2 py-1.5 rounded channel-active cursor-pointer text-sm">
+                <span class="text-gray-400 text-xl mr-2 font-light">#</span> 🔗-文字同步直连
             </div>
-            <div class="flex items-center px-2 py-1.5 rounded text-gray-400 hover:bg-gray-700 hover:bg-opacity-30 hover:text-gray-200 cursor-not-allowed text-sm transition-colors">
-                <span class="text-xl text-gray-500 mr-2 font-light">#</span> 💬-灌水闲聊区
-            </div>
-            <div class="flex items-center px-2 py-1.5 rounded text-gray-400 hover:bg-gray-700 hover:bg-opacity-30 hover:text-gray-200 cursor-not-allowed text-sm transition-colors">
-                <span class="text-xl text-gray-500 mr-2 font-light">#</span> 💻-资源与配置
+            <div class="flex items-center px-2 py-1.5 rounded channel-hover text-gray-400 cursor-not-allowed text-sm">
+                <span class="text-gray-500 text-xl mr-2 font-light">#</span> 💬-灌水闲聊区
             </div>
         </div>
 
-        <!-- 底部：高仿个人资料状态卡片 -->
-        <div class="dc-bg-profile p-2 h-14 flex items-center justify-between text-xs border-t border-gray-900 border-opacity-20">
-            <div class="flex items-center space-x-2 cursor-pointer p-1 rounded hover:bg-gray-700 hover:bg-opacity-40 transition-colors flex-1 min-w-0">
-                <div class="relative flex-shrink-0">
-                    <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center font-bold text-white text-sm" id="user-avatar">我</div>
-                    <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-gray-900 rounded-full"></div>
-                </div>
+        <div class="h-14 px-2 flex items-center justify-between" style="background-color: #232428;">
+            <div class="flex items-center space-x-2 overflow-hidden">
+                <div class="w-8 h-8 bg-blue-600 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-xs" id="user-avatar">JR</div>
                 <div class="truncate">
-                    <div class="font-bold text-gray-100 text-sm leading-tight truncate" id="user-display-name">加载中...</div>
-                    <div class="text-gray-400 text-[10px]">在线</div>
+                    <div class="text-sm font-bold text-white truncate" id="user-display-name">JR Official</div>
+                    <div class="text-[10px] text-gray-400 leading-none">#在线</div>
                 </div>
             </div>
-            <button onclick="changeNickname()" class="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 hover:bg-opacity-40 rounded transition-colors" title="修改发射者昵称">
-                ⚙️
-            </button>
+            <button onclick="changeNickname()" class="text-gray-400 hover:text-white p-1">⚙️</button>
         </div>
     </div>
 
-    <!-- 3. 【右侧主面板】Discord 消息流动视窗 -->
-    <div class="flex-1 flex flex-col min-w-0 relative">
-        <!-- 视窗页眉 -->
-        <div class="h-12 flex items-center px-4 shadow-sm border-b border-gray-900 border-opacity-40 space-x-2 flex-shrink-0">
-            <span class="text-2xl text-gray-400 font-light">#</span>
-            <span class="font-bold text-white text-base">🔗-文字同步直连</span>
-            <span class="text-xs text-gray-400 border-l border-gray-700 pl-3 ml-2">已成功绑定官方 Webhook 隧道</span>
+    <div class="flex-1 flex flex-col min-w-0" style="background-color: var(--bg-chat);">
+        <div class="h-12 flex items-center px-4 border-b border-black border-opacity-20 shadow-sm flex-shrink-0">
+            <span class="text-2xl text-gray-500 font-light mr-2">#</span>
+            <span class="font-bold text-white">🔗-文字同步直连</span>
+            <div class="ml-auto flex space-x-4 text-gray-400">
+                <span>🔔</span><span>📌</span><span>👥</span>
+            </div>
         </div>
 
-        <!-- 消息流容器 -->
-        <main class="flex-1 overflow-y-auto p-4 space-y-4 dc-scrollbar" id="chat-scroller">
-            <!-- 起始点引导标识 -->
-            <div class="pt-8 pb-4 border-b border-gray-700 border-opacity-20">
-                <div class="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mb-4 text-4xl text-white">#</div>
-                <h2 class="text-3xl font-extrabold text-white mb-2 tracking-tight">欢迎来到 #🔗-文字同步直连！</h2>
-                <p class="text-gray-400 text-sm leading-relaxed">这是该频道的历史开端。你在此处输入的任何文本，都将被光速推送到真实的 Discord 群组中。</p>
+        <main class="flex-1 overflow-y-auto p-4 space-y-6 custom-scroll" id="chat-scroller">
+            <div class="pb-6 border-b border-gray-700 border-opacity-30">
+                <div class="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center text-4xl mb-4">#</div>
+                <h1 class="text-3xl font-bold text-white">欢迎来到 #🔗-文字同步直连！</h1>
+                <p class="text-gray-400 mt-2">这是该频道的历史开端。发送的消息会实时同步到 Discord。</p>
             </div>
-            <div id="message-container" class="space-y-4 pt-2"></div>
+            <div id="message-container" class="space-y-5"></div>
         </main>
 
-        <!-- 输入底框 -->
-        <footer class="p-4 pt-0 flex-shrink-0">
-            <form id="chat-form" class="dc-bg-input rounded-lg px-4 py-2.5 flex items-center space-x-3 shadow-md">
-                <button type="button" class="w-6 h-6 bg-gray-600 hover:bg-gray-500 rounded-full flex items-center justify-center text-white font-bold transition-colors text-sm flex-shrink-0">＋</button>
+        <div class="flex-shrink-0">
+            <form id="chat-form" class="dc-input-container flex items-center space-x-3">
+                <div class="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white font-bold cursor-pointer hover:bg-gray-400">+</div>
                 <input 
                     type="text" 
                     id="chat-input" 
-                    placeholder="向真实 Discord 频道发送消息..." 
-                    required
-                    autocomplete="off"
+                    placeholder="向 #🔗-文字同步直连 发送消息" 
                     class="bg-transparent flex-1 text-sm text-gray-100 focus:outline-none placeholder-gray-500"
+                    autocomplete="off"
                 >
-                <div class="flex items-center space-x-2 text-xl opacity-60 hover:opacity-100 transition-opacity cursor-pointer flex-shrink-0">
-                    <span>🎁</span>
-                    <span>😀</span>
+                <div class="flex space-x-2 text-xl grayscale hover:grayscale-0 cursor-pointer">
+                    <span>🎁</span><span>😀</span>
                 </div>
             </form>
-        </footer>
+        </div>
     </div>
 
     <script>
-        // 你的专属官方私密 Webhook 通道（已硬编码嵌入）
         const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1505096198275731467/ree5y53JMM99S7dcCMqqW4_84Qumo26r0bG-a78bbocWbFNM0pSlGKu6-egUQdiNEwq8";
-
-        let myUsername = localStorage.getItem('dc_real_username') || "Vercel旅行者_" + Math.floor(1000 + Math.random() * 9000);
-        localStorage.setItem('dc_real_username', myUsername);
-
+        
+        let myUsername = localStorage.getItem('dc_real_username') || "JR Official";
         const messageContainer = document.getElementById('message-container');
         const chatForm = document.getElementById('chat-form');
         const chatInput = document.getElementById('chat-input');
         const chatScroller = document.getElementById('chat-scroller');
 
-        function updateProfileUI() {
+        function updateUI() {
             document.getElementById('user-display-name').innerText = myUsername;
             document.getElementById('user-avatar').innerText = myUsername.substring(0, 2).toUpperCase();
         }
 
         function changeNickname() {
-            const name = prompt("更换你在网页端投射到 Discord 群的虚拟昵称：", myUsername);
-            if (name && name.trim()) {
-                myUsername = name.trim();
-                localStorage.setItem('dc_real_username', myUsername);
-                updateProfileUI();
-            }
+            const name = prompt("修改昵称：", myUsername);
+            if (name) { myUsername = name; localStorage.setItem('dc_real_username', name); updateUI(); }
         }
 
-        // 精细化复刻 Discord 消息卡片 DOM 渲染
-        function appendDOMMessage(user, text, time, isPending = false) {
-            const div = document.createElement('div');
-            div.className = `flex items-start space-x-4 p-1 px-3 -mx-3 rounded hover:bg-gray-700 hover:bg-opacity-20 transition-all ${isPending ? 'opacity-40' : ''}`;
+        function appendMessage(user, text, isPending = false) {
+            const now = new Date();
+            const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
             
+            const div = document.createElement('div');
+            div.className = `flex space-x-4 group ${isPending ? 'opacity-40' : ''}`;
             div.innerHTML = `
-                <div class="w-10 h-10 bg-indigo-600 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white text-sm shadow-md uppercase">
-                    ${user.substring(0, 2)}
-                </div>
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-baseline space-x-2 mb-1">
-                        <span class="font-semibold text-sm text-white hover:underline cursor-pointer transition-all">${user}</span>
-                        <span class="text-[10px] text-gray-500 font-medium">${time}</span>
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white">${user.substring(0, 2).toUpperCase()}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline space-x-2">
+                        <span class="font-bold text-white hover:underline cursor-pointer">${user}</span>
+                        <span class="text-[10px] text-gray-500">今天 ${time}</span>
                     </div>
-                    <p class="text-sm break-words text-gray-300 leading-normal tracking-wide">${escapeHTML(text)}</p>
+                    <div class="text-sm text-gray-300 mt-0.5 leading-relaxed break-words">${text.replace(/\n/g, '<br>')}</div>
                 </div>
             `;
             messageContainer.appendChild(div);
-            chatScroller.scrollTop = chatScroller.scrollHeight; // 强制保持底部视窗
+            chatScroller.scrollTo({ top: chatScroller.scrollHeight, behavior: 'smooth' });
         }
 
-        function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
-        }
-
-        // 表单捕获与异步网络推流
         chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const text = chatInput.value.trim();
             if (!text) return;
 
-            const now = new Date();
-            const timeStr = `今天 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            
-            // 预渲染上屏（灰色等待态）
-            appendDOMMessage(myUsername, text, timeStr, true);
+            appendMessage(myUsername, text, true);
             chatInput.value = '';
 
-            // 向 Discord 官方核心 API 发起异步跨域投递
             try {
-                const response = await fetch(DISCORD_WEBHOOK_URL, {
+                const res = await fetch(DISCORD_WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: myUsername, 
-                        content: text         
-                    })
+                    body: JSON.stringify({ username: myUsername, content: text })
                 });
-
-                if (response.ok) {
-                    // 发送成功，高亮恢复
-                    if (messageContainer.lastElementChild) {
-                        messageContainer.lastElementChild.classList.remove('opacity-40');
-                    }
-                } else {
-                    alert("⚠️ Discord 拒绝了本次通信，代码：" + response.status);
-                }
-            } catch (error) {
-                console.error("流投递中断:", error);
-                alert("网络连接异常，发送失败。");
+                if (res.ok) messageContainer.lastElementChild.classList.remove('opacity-40');
+            } catch (err) {
+                alert("发送失败，请检查网络");
             }
         });
 
-        // 页面启动执行
-        updateProfileUI();
+        updateUI();
     </script>
 </body>
 </html>
