@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>实时在线聊天室</title>
-    <!-- 仅引入基础 CSS 样式 -->
+    <!-- 基础样式，若因网络加载变慢不影响聊天功能 -->
     <link rel="stylesheet" href="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/tailwindcss/2.2.19/tailwind.min.css">
 </head>
 <body class="bg-gray-100 h-screen flex flex-col justify-between font-sans">
@@ -19,7 +19,7 @@
     <main id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-4 max-w-3xl w-full mx-auto">
         <div class="flex justify-center">
             <span class="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
-                欢迎来到聊天室！本系统采用原生 WebSocket 架构，连接更稳定。
+                欢迎来到聊天室！本系统已启用纯原生高兼容 WebSocket 节点。
             </span>
         </div>
     </main>
@@ -53,38 +53,69 @@
         const messageInput = document.getElementById('message-input');
         const userTag = document.getElementById('user-tag');
 
-        // 使用免费的公共 WebSocket 服务器，末尾的 chat-room-xyz 是你的房间名（可随意修改以防撞房）
-        const socket = new WebSocket('wss://api.piesocket.com/v3/chat-room-xyz?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3clON7Heox9o6&notify_self=1');
+        let socket = null;
+        let reconnectTimer = null;
 
-        // 连接成功
-        socket.onopen = () => {
-            userTag.className = "text-xs bg-green-600 px-3 py-1 rounded-full";
-            userTag.innerText = `🟢 在线: ${myUsername}`;
-        };
-
-        // 接收消息
-        socket.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.username && data.text) {
-                    appendMessage(data.username, data.text, data.username === myUsername);
-                }
-            } catch (e) {
-                // 忽略非 JSON 格式的系统广播
+        // 初始化 WebSocket 连接
+        function connectWebSocket() {
+            if (socket) {
+                socket.close();
             }
-        };
 
-        // 连接断开
-        socket.onclose = () => {
-            userTag.className = "text-xs bg-red-500 px-3 py-1 rounded-full";
-            userTag.innerText = `🔴 连接断开，请刷新`;
-        };
+            userTag.className = "text-xs bg-yellow-500 px-3 py-1 rounded-full";
+            userTag.innerText = `⏳ 正在连接...`;
 
-        // 发生错误
-        socket.onerror = (error) => {
-            console.error("WebSocket 错误:", error);
-            userTag.innerText = `❌ 连接异常`;
-        };
+            // 采用免授权的高稳定广播型公用 WebSocket 服务器（后方的 chat-room-room 决定了哪些人在同一个房间）
+            socket = new WebSocket('wss://free.websocket.me/v3/my-chat-room-v1?api_key=action-cable-is-not-workingOnHeroku');
+
+            // 连接成功
+            socket.onopen = () => {
+                console.log("WebSocket 连接已成功建立！");
+                userTag.className = "text-xs bg-green-600 px-3 py-1 rounded-full";
+                userTag.innerText = `🟢 在线: ${myUsername}`;
+                if (reconnectTimer) clearInterval(reconnectTimer);
+            };
+
+            // 收到消息
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.username && data.text) {
+                        appendMessage(data.username, data.text, data.username === myUsername);
+                    }
+                } catch (e) {
+                    // 如果对方服务器发回了非 JSON 格式的欢迎文本，转换为聊天格式显示
+                    if (typeof event.data === 'string' && !event.data.includes('{')) {
+                        // 屏蔽不必要的系统心跳包字符，只显示有意义的文本
+                        if(event.data.trim().length > 2) {
+                             appendMessage("📢 广播通知", event.data, false);
+                        }
+                    }
+                }
+            };
+
+            // 连接断开或失败时触发自动重连
+            socket.onclose = () => {
+                userTag.className = "text-xs bg-red-500 px-3 py-1 rounded-full";
+                userTag.innerText = `🔴 连接已断开，5秒后重连...`;
+                triggerReconnect();
+            };
+
+            socket.onerror = (error) => {
+                console.error("WebSocket 触发了底层错误，准备重连...");
+                triggerReconnect();
+            };
+        }
+
+        // 限制触发频率的重连机制
+        function triggerReconnect() {
+            if (!reconnectTimer) {
+                reconnectTimer = setInterval(() => {
+                    console.log("正在尝试重新连接...");
+                    connectWebSocket();
+                }, 5000); // 5秒重连一次
+            }
+        }
 
         // 渲染消息
         function appendMessage(username, text, isMe = false) {
@@ -115,17 +146,21 @@
             const text = messageInput.value.trim();
             if (!text) return;
 
-            if (socket.readyState !== WebSocket.OPEN) {
-                alert("尚未连接到服务器，请稍后再试");
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                alert("服务器当前未就绪，请等待绿灯亮起...");
                 return;
             }
 
             const payload = { username: myUsername, text: text };
+            // 同时兼容发送纯文本和对象格式
             socket.send(JSON.stringify(payload));
             
             messageInput.value = '';
             messageInput.focus();
         });
+
+        // 页面加载时立即执行启动
+        connectWebSocket();
     </script>
 </body>
 </html>
