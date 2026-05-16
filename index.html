@@ -3,164 +3,258 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>实时在线聊天室</title>
-    <!-- 基础样式，若因网络加载变慢不影响聊天功能 -->
+    <title>Discord 镜像体验版</title>
+    <!-- 引入高稳定性国内 CSS 加速源 -->
     <link rel="stylesheet" href="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/tailwindcss/2.2.19/tailwind.min.css">
+    <style>
+        /* 深度定制 Discord 暗黑主题配色 */
+        .discord-dark { background-color: #36393f; }
+        .discord-channels { background-color: #2f3136; }
+        .discord-servers { background-color: #202225; }
+        .discord-input { background-color: #40444b; }
+        .discord-text { color: #dcddde; }
+        .discord-muted { color: #72767d; }
+    </style>
 </head>
-<body class="bg-gray-100 h-screen flex flex-col justify-between font-sans">
+<body class="h-screen flex overflow-hidden font-sans select-none discord-dark text-white">
 
-    <!-- 顶部导航栏 -->
-    <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
-        <h1 class="text-xl font-bold tracking-wide">🌐 公共实时聊天室</h1>
-        <div id="user-tag" class="text-xs bg-yellow-500 px-3 py-1 rounded-full">正在连接服务器...</div>
-    </header>
-
-    <!-- 聊天内容区域 -->
-    <main id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-4 max-w-3xl w-full mx-auto">
-        <div class="flex justify-center">
-            <span class="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
-                欢迎来到聊天室！本系统已启用纯原生高兼容 WebSocket 节点。
-            </span>
+    <!-- 1. 最左侧：服务器图标栏 (Icon Bar) -->
+    <div class="discord-servers w-18 flex flex-col items-center py-3 space-y-2 flex-shrink-0">
+        <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center cursor-pointer hover:rounded-xl transition-all shadow-lg group">
+            <span class="text-xl font-bold">🎮</span>
         </div>
-    </main>
+        <div class="w-8 h-0.5 bg-gray-700 rounded"></div>
+        <div class="w-12 h-12 bg-gray-700 rounded-3xl flex items-center justify-center cursor-pointer hover:bg-green-600 hover:rounded-xl transition-all group">
+            <span class="text-lg">🤖</span>
+        </div>
+        <div class="w-12 h-12 bg-gray-700 rounded-3xl flex items-center justify-center cursor-pointer hover:bg-yellow-600 hover:rounded-xl transition-all group">
+            <span class="text-lg">🎵</span>
+        </div>
+    </div>
 
-    <!-- 底部输入区域 -->
-    <footer class="bg-white p-4 border-t border-gray-200 shadow-lg">
-        <form id="message-form" class="max-w-3xl mx-auto flex gap-2">
-            <input 
-                type="text" 
-                id="message-input" 
-                placeholder="输入消息内容..." 
-                required
-                autocomplete="off"
-                class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            >
-            <button 
-                type="submit" 
-                class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg shadow-md transition-all"
-            >
-                发送
-            </button>
-        </form>
-    </footer>
+    <!-- 2. 左二：群频道列表栏 (Channels Bar) -->
+    <div class="discord-channels w-60 flex flex-col flex-shrink-0">
+        <div class="h-12 border-b border-gray-900 flex items-center px-4 font-bold shadow-sm">
+            🚀 开发者快乐交流群
+        </div>
+        <!-- 频道列表 -->
+        <div class="flex-1 overflow-y-auto pt-3 px-2 space-y-0.5" id="channel-list">
+            <div onclick="switchChannel('general')" id="btn-general" class="flex items-center px-2 py-2 rounded text-gray-300 bg-gray-700 cursor-pointer">
+                <span class="text-xl text-gray-400 mr-1.5">#</span> 💬-综合闲聊
+            </div>
+            <div onclick="switchChannel('code')" id="btn-code" class="flex items-center px-2 py-2 rounded text-gray-400 hover:bg-gray-800 hover:text-gray-200 cursor-pointer">
+                <span class="text-xl text-gray-400 mr-1.5">#</span> 💻-代码Debug
+            </div>
+            <div onclick="switchChannel('music')" id="btn-music" class="flex items-center px-2 py-2 rounded text-gray-400 hover:bg-gray-800 hover:text-gray-200 cursor-pointer">
+                <span class="text-xl text-gray-400 mr-1.5">#</span> 🎵-音乐分享
+            </div>
+        </div>
+        <!-- 底部个人信息栏 -->
+        <div class="bg-gray-900 p-3 h-14 flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold" id="user-avatar">我</div>
+                <div>
+                    <div class="font-bold" id="user-display-name">加载中...</div>
+                    <div class="text-gray-500">#0001</div>
+                </div>
+            </div>
+            <button onclick="changeNickname()" class="text-gray-400 hover:text-white">⚙️</button>
+        </div>
+    </div>
+
+    <!-- 3. 右侧：聊天主界面 (Chat Area) -->
+    <div class="flex-1 flex flex-col discord-dark min-w-0">
+        <!-- 聊天室顶部标题 -->
+        <div class="h-12 border-b border-gray-900 flex items-center px-4 shadow-sm space-x-2 flex-shrink-0">
+            <span class="text-2xl text-gray-400">#</span>
+            <span class="font-bold text-sm" id="current-channel-title">💬-综合闲聊</span>
+            <span class="text-xs text-gray-400 border-l border-gray-700 pl-3">欢迎来到本频道的起点！</span>
+        </div>
+
+        <!-- 消息历史滚动区 -->
+        <main class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-scroller">
+            <!-- 欢迎引导看板 -->
+            <div class="pt-6 pb-2" id="welcome-board">
+                <h2 class="text-3xl font-bold mb-1">欢迎来到 #<span id="welcome-channel-name">综合闲聊</span> 频道！</h2>
+                <p class="text-gray-400 text-sm">这是该频道的历史开端。</p>
+            </div>
+            <div id="message-container" class="space-y-4"></div>
+        </main>
+
+        <!-- 输入框区域 -->
+        <footer class="p-4 pt-0 flex-shrink-0">
+            <form id="chat-form" class="discord-input rounded-lg px-4 py-2.5 flex items-center space-x-3 shadow-inner">
+                <button type="button" class="text-xl text-gray-400 hover:text-gray-200">➕</button>
+                <input 
+                    type="text" 
+                    id="chat-input" 
+                    placeholder="在 #💬-综合闲聊 中发点什么..." 
+                    required
+                    autocomplete="off"
+                    class="bg-transparent flex-1 text-sm text-gray-200 focus:outline-none placeholder-gray-500"
+                >
+                <button type="button" class="text-xl hover:scale-110 transition-transform">🎁</button>
+                <button type="button" class="text-xl hover:scale-110 transition-transform">😀</button>
+            </form>
+        </footer>
+    </div>
 
     <script>
-        // 随机生成当前用户的匿名昵称
-        const myUsername = "用户_" + Math.floor(1000 + Math.random() * 9000);
-        
-        const chatBox = document.getElementById('chat-box');
-        const messageForm = document.getElementById('message-form');
-        const messageInput = document.getElementById('message-input');
-        const userTag = document.getElementById('user-tag');
+        // 初始化数据与默认参数
+        let currentChannel = 'general';
+        let myUsername = localStorage.getItem('dc_username') || "开荒者_" + Math.floor(1000 + Math.random() * 9000);
+        localStorage.setItem('dc_username', myUsername);
 
-        let socket = null;
-        let reconnectTimer = null;
+        // 机器人模拟词库组
+        const botReplies = [
+            "草（一种植物），这代码写得真优雅！",
+            "Vercel 部署真的快，静态网页终极归宿了属于是。",
+            "有没有大佬会写 Swift？iPad Playgrounds 总是报错怎么解？",
+            "刚在听 Alan Walker 的新单曲，感觉比特率拉满听起来就是爽。",
+            "有人来一把 Phigros 或者 Arcaea 吗？手残党求带呜呜呜",
+            "好家伙，这个 Discord 镜像UI做得太逼真了，我还以为我网卡了。",
+            "今天天气不错，适合窝在家里写一下午 Bug。"
+        ];
+        const botUsers = ["Wumpus_Bot", "代码摸鱼狂", "Rhythm_Master", "极客少年", "电音狂热粉"];
 
-        // 初始化 WebSocket 连接
-        function connectWebSocket() {
-            if (socket) {
-                socket.close();
+        // 绑定节点
+        const messageContainer = document.getElementById('message-container');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatScroller = document.getElementById('chat-scroller');
+
+        // 更新用户界面状态
+        function updateProfileUI() {
+            document.getElementById('user-display-name').innerText = myUsername;
+            document.getElementById('user-avatar').innerText = myUsername.substring(0, 2);
+        }
+
+        // 修改昵称功能
+        function changeNickname() {
+            const name = prompt("请输入你希望修改的 Discord 昵称：", myUsername);
+            if (name && name.trim()) {
+                myUsername = name.trim();
+                localStorage.setItem('dc_username', myUsername);
+                updateProfileUI();
             }
+        }
 
-            userTag.className = "text-xs bg-yellow-500 px-3 py-1 rounded-full";
-            userTag.innerText = `⏳ 正在连接...`;
-
-            // 采用免授权的高稳定广播型公用 WebSocket 服务器（后方的 chat-room-room 决定了哪些人在同一个房间）
-            socket = new WebSocket('wss://free.websocket.me/v3/my-chat-room-v1?api_key=action-cable-is-not-workingOnHeroku');
-
-            // 连接成功
-            socket.onopen = () => {
-                console.log("WebSocket 连接已成功建立！");
-                userTag.className = "text-xs bg-green-600 px-3 py-1 rounded-full";
-                userTag.innerText = `🟢 在线: ${myUsername}`;
-                if (reconnectTimer) clearInterval(reconnectTimer);
+        // 切换频道逻辑
+        function switchChannel(channelId) {
+            currentChannel = channelId;
+            const channels = {
+                'general': '💬-综合闲聊',
+                'code': '💻-代码Debug',
+                'music': '🎵-音乐分享'
             };
-
-            // 收到消息
-            socket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.username && data.text) {
-                        appendMessage(data.username, data.text, data.username === myUsername);
-                    }
-                } catch (e) {
-                    // 如果对方服务器发回了非 JSON 格式的欢迎文本，转换为聊天格式显示
-                    if (typeof event.data === 'string' && !event.data.includes('{')) {
-                        // 屏蔽不必要的系统心跳包字符，只显示有意义的文本
-                        if(event.data.trim().length > 2) {
-                             appendMessage("📢 广播通知", event.data, false);
-                        }
-                    }
+            
+            // 样式高亮切换
+            ['general', 'code', 'music'].forEach(ch => {
+                const el = document.getElementById(`btn-${ch}`);
+                if (ch === channelId) {
+                    el.className = "flex items-center px-2 py-2 rounded text-white bg-gray-700 cursor-pointer";
+                } else {
+                    el.className = "flex items-center px-2 py-2 rounded text-gray-400 hover:bg-gray-800 hover:text-gray-200 cursor-pointer";
                 }
-            };
+            });
 
-            // 连接断开或失败时触发自动重连
-            socket.onclose = () => {
-                userTag.className = "text-xs bg-red-500 px-3 py-1 rounded-full";
-                userTag.innerText = `🔴 连接已断开，5秒后重连...`;
-                triggerReconnect();
-            };
+            // 更新标题
+            document.getElementById('current-channel-title').innerText = channels[channelId];
+            document.getElementById('welcome-channel-name').innerText = channels[channelId];
+            chatInput.placeholder = `在 #${channels[channelId]} 中发点什么...`;
 
-            socket.onerror = (error) => {
-                console.error("WebSocket 触发了底层错误，准备重连...");
-                triggerReconnect();
-            };
+            renderMessages();
         }
 
-        // 限制触发频率的重连机制
-        function triggerReconnect() {
-            if (!reconnectTimer) {
-                reconnectTimer = setInterval(() => {
-                    console.log("正在尝试重新连接...");
-                    connectWebSocket();
-                }, 5000); // 5秒重连一次
+        // 从沙盒本地缓存渲染消息
+        function renderMessages() {
+            messageContainer.innerHTML = '';
+            const key = `dc_msgs_${currentChannel}`;
+            const msgs = JSON.parse(localStorage.getItem(key)) || getMockInitialMessages(currentChannel);
+            
+            msgs.forEach(msg => {
+                appendDOMMessage(msg.user, msg.text, msg.time, msg.isBot);
+            });
+            chatScroller.scrollTop = chatScroller.scrollHeight;
+        }
+
+        // 获取每个频道的初始问候伪数据
+        function getMockInitialMessages(channel) {
+            if (channel === 'general') {
+                return [{ user: "System_Bot", text: "欢迎来到本群！这是一个运行在 Vercel 上的无后端 Discord 高保真单文件镜像系统。", time: "上午 10:00", isBot: true }];
+            } else if (channel === 'code') {
+                return [{ user: "Debug_Helper", text: "这里可以粘贴你的 HTML/JS 代码，本地安全隔离。请随时测试！", time: "中午 12:00", isBot: true }];
+            } else {
+                return [{ user: "DJ_Wumpus", text: "在这里分享你最喜欢的电子乐、Hi-Fi 音乐或者是音游曲目吧！", time: "下午 02:00", isBot: true }];
             }
         }
 
-        // 渲染消息
-        function appendMessage(username, text, isMe = false) {
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-4`;
+        // 拼装DOM并渲染到页面上
+        function appendDOMMessage(user, text, time, isBot = false) {
+            const div = document.createElement('div');
+            div.className = "flex items-start space-x-4 hover:bg-gray-800 hover:bg-opacity-30 p-1 px-2 -mx-2 rounded transition-colors";
+            
+            const botTag = isBot ? `<span class="bg-indigo-500 text-white font-semibold rounded px-1 text-[10px] ml-1.5 align-middle tracking-wider">机器人</span>` : '';
+            const avatarColor = isBot ? 'bg-purple-600' : 'bg-gray-600';
 
-            msgDiv.innerHTML = `
-                <span class="text-xs text-gray-500 mb-1 px-1">${username} ${isMe ? '(我)' : ''}</span>
-                <div class="max-w-[75%] p-3 rounded-xl shadow-sm text-sm ${
-                    isMe 
-                    ? 'bg-blue-600 text-white rounded-tr-none' 
-                    : 'bg-white text-gray-800 border border-gray-200 rounded-tl-none'
-                }">
-                    ${escapeHTML(text)}
+            div.innerHTML = `
+                <div class="w-10 h-10 ${avatarColor} rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm text-gray-200 shadow">
+                    ${user.substring(0, 2)}
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-baseline space-x-2 mb-0.5">
+                        <span class="font-medium text-sm text-white hover:underline cursor-pointer">${user}</span>
+                        ${botTag}
+                        <span class="text-xs text-gray-500">${time}</span>
+                    </div>
+                    <p class="text-sm break-words text-gray-300 leading-relaxed">${escapeHTML(text)}</p>
                 </div>
             `;
-            chatBox.appendChild(msgDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
+            messageContainer.appendChild(div);
+            chatScroller.scrollTop = chatScroller.scrollHeight;
         }
 
         function escapeHTML(str) {
             return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
 
-        // 发送消息
-        messageForm.addEventListener('submit', (e) => {
+        // 表单消息提交逻辑
+        chatForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const text = messageInput.value.trim();
+            const text = chatInput.value.trim();
             if (!text) return;
 
-            if (!socket || socket.readyState !== WebSocket.OPEN) {
-                alert("服务器当前未就绪，请等待绿灯亮起...");
-                return;
-            }
-
-            const payload = { username: myUsername, text: text };
-            // 同时兼容发送纯文本和对象格式
-            socket.send(JSON.stringify(payload));
+            const now = new Date();
+            const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
             
-            messageInput.value = '';
-            messageInput.focus();
+            // 1. 保存并渲染用户发送的消息
+            const key = `dc_msgs_${currentChannel}`;
+            let msgs = JSON.parse(localStorage.getItem(key)) || getMockInitialMessages(currentChannel);
+            const userMsg = { user: myUsername, text: text, time: timeStr, isBot: false };
+            msgs.push(userMsg);
+            localStorage.setItem(key, JSON.stringify(msgs));
+            
+            appendDOMMessage(userMsg.user, userMsg.text, userMsg.time, false);
+            chatInput.value = '';
+
+            // 2. 模拟活跃大群：随机触发虚拟群友/机器人的精彩回复
+            setTimeout(() => {
+                const randomReply = botReplies[Math.floor(Math.random() * botReplies.length)];
+                const randomUser = botUsers[Math.floor(Math.random() * botUsers.length)];
+                
+                const botMsg = { user: randomUser, text: randomReply, time: timeStr, isBot: Math.random() > 0.4 };
+                
+                let currentMsgs = JSON.parse(localStorage.getItem(key)) || [];
+                currentMsgs.push(botMsg);
+                localStorage.setItem(key, JSON.stringify(currentMsgs));
+                
+                appendDOMMessage(botMsg.user, botMsg.text, botMsg.time, botMsg.isBot);
+            }, 800 + Math.random() * 1000); // 随机延迟，模拟打字速度
         });
 
-        // 页面加载时立即执行启动
-        connectWebSocket();
+        // 页面入口点
+        updateProfileUI();
+        renderMessages();
     </script>
 </body>
 </html>
